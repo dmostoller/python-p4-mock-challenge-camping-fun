@@ -42,10 +42,10 @@ class Camper(db.Model, SerializerMixin):
     age = db.Column(db.Integer)
 
     # Add relationship
-    signups = db.relationship("Camper", back_populates="camper", cascade="all, delete")
+    signups = db.relationship("Signup", back_populates="camper", cascade="all, delete")
     activities = association_proxy("signups", "activity")
     # Add serialization rules
-    serialize_rules = ("-signups.camper", "-signups.activity")
+    serialize_rules = ("-signups.camper", "signups")
     # Add validation
     @validates("name")
     def validate_name(self, key, name):
@@ -78,12 +78,12 @@ class Signup(db.Model, SerializerMixin):
     camper_id = db.Column(db.Integer, db.ForeignKey("campers.id"))
     camper = db.relationship(Camper, back_populates="signups")
     # Add serialization rules
-    serialize_rules = ("-activity.signups", "-camper.signups")
+    serialize_rules = ("-activity.signups",)
     
     # Add validation
     @validates("time")
     def validate_time(self, key, time):
-        if time and 0 <= time <= 23:
+        if time and 0 <= time < 24:
             return time
         else:
             raise Exception("Time must be between 0 and 23")
