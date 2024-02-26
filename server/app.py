@@ -29,59 +29,67 @@ def home():
 
 class Campers(Resource):
     def get(self):
-        camper_list = [camper.to_dict() for camper in Camper.query.all()]
-        return make_response(camper_list, 200)
+        camper_list = [camper.to_dict(rules = ('-signups',)) for camper in Camper.query.all()]
+        response = make_response(camper_list, 200)
+        return response 
     
     def post(self):
-        form_json = request.get_json()
         try:
+            form_json = request.get_json()
             new_camper = Camper(
                 name=form_json["name"],
                 age=form_json["age"],
             )
-        except ValueError as e:
-            abort(422, e.args[0])
+            db.session.add(new_camper)
+            db.session.commit() 
+            response = make_response(new_camper.to_dict(rules = ('-signups', )), 201)
+        except ValueError:
+            response = make_response({"errors" : ["validation errors"]}, 400)
 
-        db.session.add(new_camper)
-        db.session.commit() 
-        return make_response(new_camper.to_dict(), 201)
+        return response
 
 class CampersById(Resource):
     def get(self, id):
         camper = Camper.query.filter_by(id=id).first()
-        if not camper:
-            raise NotFound 
-        return make_response(camper.to_dict(), 200)
+        if camper:
+            response = make_response(camper.to_dict(), 200)
+        else:    
+            response = make_response({"error" : "Camper not found"}, 404)
+        return response 
 
     def patch(self, id):
         camper = Camper.query.filter_by(id=id).first()
-        if not camper:
-            raise NotFound
-        
-        for attr in request.get_json():
-            setattr(camper, attr, request.get_json()[attr])
-        
-        db.session.add(camper)
-        db.session.commit()
+        if camper:
+            try:                
+                for attr in request.get_json():
+                    setattr(camper, attr, request.get_json()[attr])
+                db.session.add(camper)
+                db.session.commit()    
+                response = make_response(camper.to_dict(rules = ('-signups', )), 202)
+            except ValueError:
+                response = make_response({"errors" : ["validation errors"]}, 400)
+        else:
+            response = make_response({"error" : "Camper not found"}, 404)
 
-        return make_response(camper.to_dict(), 200)
+
+        return response 
 
 
 class Activities(Resource):
     def get(self):
-        activities_list = [activity.to_dict() for activity in Activity.query.all()]
+        activities_list = [activity.to_dict(rules = ("-signups", )) for activity in Activity.query.all()]
         return make_response(activities_list, 200)
     
 class ActivitiesById(Resource):
     def delete(self, id):
         activity = Activity.query.filter_by(id=id).first()
-        if not activity:
-            abort(404, "Activity not found!")
-
-        db.session.delete(activity)
-        db.session.commit()
-
-        return make_response("", 204)
+        if activity:
+            db.session.delete(activity)
+            db.session.commit()
+            response = make_response({}, 204)
+        else:
+            response = make_response({"error" : "Activity not found"}, 404)
+        return response
 
 class Signups(Resource):
     def post(self):
@@ -92,13 +100,13 @@ class Signups(Resource):
                 activity_id=form_json["activity_id"],
                 time=form_json["time"]
             )
-        except ValueError as e:
-            abort(422, e.args[0])
+            db.session.add(new_signup)
+            db.session.commit()
+            response = make_response(new_signup.to_dict(), 201)
+        except ValueError:
+            response = make_response({"errors" : ["validation errors"]}, 400)
 
-        db.session.add(new_signup)
-        db.session.commit()
-
-        return make_response(new_signup.to_dict(), 201)
+        return response 
 
 api.add_resource(Campers, "/campers")
 api.add_resource(CampersById, "/campers/<int:id>")
